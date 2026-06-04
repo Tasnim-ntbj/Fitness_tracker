@@ -15,8 +15,11 @@ interface AppContextType {
   allActivityLogs: ActivityEntry[];
   setAllActivityLogs: React.Dispatch<React.SetStateAction<ActivityEntry[]>>;
   // updateUserProfile: (updates: Partial<User>) => void;  // used for local save
-  updateUserProfile: (updates: Partial<User>) => Promise<any>;
-  completeOnboarding: (onboardingData: any) => Promise<any>;
+  updateUserProfile: (updates: Partial<User>) => Promise<any>;//profile page
+  completeOnboarding: (onboardingData: any) => Promise<any>;//onboarding page
+  saveHealthEntry: (entryData: any) => Promise<any>;//activity log page_add entry buttton
+  updateHealthEntry: (id: string | number, entryData: any) => Promise<any>;//act_log page_ edit logs
+
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -107,6 +110,30 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+    //🚨Logout 
+  const logout = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (token) {
+        await fetch("http://localhost:8080/auth/logout", {
+          method: "POST",
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Optional server-side logout sweep failed:", error);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('loggedUser');
+      setUser(null);
+      setIsUserFetched(true);
+      navigate("/login");
+    }
+  };
+
   // 🚨 4. SUBMIT ONBOARDING DATA
   const completeOnboarding = async (onboardingData: any) => {
     try {
@@ -143,29 +170,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  //🚨Logout 
-  const logout = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      if (token) {
-        await fetch("http://localhost:8080/auth/logout", {
-          method: "POST",
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-      }
-    } catch (error) {
-      console.error("Optional server-side logout sweep failed:", error);
-    } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('loggedUser');
-      setUser(null);
-      setIsUserFetched(true);
-      navigate("/login");
-    }
-  };
+
 
   // LOCAL PROFILE COMPONENT UPDATE
   // const updateUserProfile = (updates: Partial<User>) => {
@@ -213,6 +218,57 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+
+//Add Entry button on activity log 
+const saveHealthEntry = async (entryData: any) => {
+  try {
+    const token = localStorage.getItem('token');
+    const url = "http://localhost:8080/health/add-entry";
+
+    const response = await fetch(url, {
+      method: "POST", // Creating a new database document row
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(entryData)
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.log) {
+      // Hydrate global log activity tracking cache arrays instantly
+      setAllActivityLogs((prevLogs) => [result.log, ...prevLogs]);
+    }
+    return result;
+  } catch (error) {
+    console.error("Database tracking link pipeline dropped:", error);
+    return { success: false, message: "Could not safely sync data metric to storage." };
+  }
+};
+//edit entry logs on the act_log page
+const updateHealthEntry = async (id: string | number, entryData: any) => {
+  try {
+    const token = localStorage.getItem('token');
+    const url = `http://localhost:8080/health/update-entry/${id}`;
+
+    const response = await fetch(url, {
+      method: "PUT", // 🛠️ PUT tells the backend to modify an existing resource
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(entryData)
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error("Database entry modification link failed:", error);
+    return { success: false, message: "Could not safely sync update to database storage." };
+  }
+};
+
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     if (savedToken) {
@@ -234,7 +290,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     allActivityLogs,
     setAllActivityLogs,
     updateUserProfile,
-    completeOnboarding 
+    completeOnboarding,
+    saveHealthEntry,
+    updateHealthEntry 
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

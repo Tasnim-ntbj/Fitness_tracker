@@ -4,7 +4,7 @@ import { Pencil, Trash2, Scale, Droplets, Activity, Calendar as CalendarIcon, Pl
 import { useAppContext } from '../context/Appcontext';
 
 interface HealthEntry {
-  id: number;
+  id: number|string;
   date: string;
   weight: string;
   sugar: string;
@@ -13,7 +13,7 @@ interface HealthEntry {
 }
 
 const ActivityLog = () => {
-  const { user } = useAppContext();
+  const { user, saveHealthEntry, updateHealthEntry } = useAppContext();
   
   const [entries, setEntries] = useState<HealthEntry[]>(() => {
     const savedEntries = localStorage.getItem('health_logs');
@@ -61,34 +61,96 @@ const ActivityLog = () => {
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    const dateToSave = selectedDate.toLocaleDateString();
+//handle save using backend
+const handleSave = async (e: React.FormEvent) => {
+  e.preventDefault();
+  const dateToSave = selectedDate.toLocaleDateString();
 
-    if (editingEntry) {
-      setEntries(entries.map(e => e.id === editingEntry.id ? {
-        ...editingEntry,
-        date: dateToSave,
-        weight,
-        sugar,
-        bpSystolic,
-        bpDiastolic
-      } : e));
-    } else {
-      const newEntry: HealthEntry = {
-        id: Date.now(),
-        date: dateToSave,
-        weight,
-        sugar,
-        bpSystolic,
-        bpDiastolic,
+  const payload = {
+    date: dateToSave,
+    weight,
+    sugar,
+    bpSystolic,
+    bpDiastolic
+  };
+
+  if (editingEntry) {
+    // 🌟 ACTIVE LIVE DATABASE UPDATE PIPELINE
+    const result = await updateHealthEntry(editingEntry.id, payload);
+
+    if (result && result.success) {
+      // Re-map the updated database properties into your frontend React component display state structure
+      const formattedUpdatedEntry: HealthEntry = {
+        id: result.log._id, // Keep the same MongoDB reference ID string intact
+        date: result.log.date,
+        weight: String(result.log.weight),
+        sugar: String(result.log.sugar),
+        bpSystolic: String(result.log.bpSystolic),
+        bpDiastolic: String(result.log.bpDiastolic)
       };
-      setEntries([newEntry, ...entries]);
+
+      // Loop through and swap the old log item with our newly formatted database row item
+      setEntries(entries.map(item => item.id === editingEntry.id ? formattedUpdatedEntry : item));
+      setIsModalOpen(false);
+      setEditingEntry(null);
+      alert(result.message || "Log updated successfully!");
+    } else {
+      alert(result?.message || "Could not complete database entry update modification.");
     }
 
-    setIsModalOpen(false);
-    setEditingEntry(null);
-  };
+  } else {
+    // 🎯 Creating a completely new record in MongoDB (Your current code)
+    const result = await saveHealthEntry(payload);
+
+    if (result && result.success) {
+      const formattedNewEntry: HealthEntry = {
+        id: result.log._id,
+        date: result.log.date,
+        weight: String(result.log.weight),
+        sugar: String(result.log.sugar),
+        bpSystolic: String(result.log.bpSystolic),
+        bpDiastolic: String(result.log.bpDiastolic)
+      };
+
+      setEntries([formattedNewEntry, ...entries]);
+      setIsModalOpen(false);
+      alert(result.message || "Log saved successfully!");
+    } else {
+      alert(result?.message || "Could not complete database entry addition.");
+    }
+  }
+};
+
+//🚨frontend handle save add entry 
+  // const handleSave = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   const dateToSave = selectedDate.toLocaleDateString();
+
+  //   if (editingEntry) {
+  //     setEntries(entries.map(e => e.id === editingEntry.id ? {
+  //       ...editingEntry,
+  //       date: dateToSave,
+  //       weight,
+  //       sugar,
+  //       bpSystolic,
+  //       bpDiastolic
+  //     } : e));
+  //   } else {
+  //     const newEntry: HealthEntry = {
+  //       id: Date.now(),
+  //       date: dateToSave,
+  //       weight,
+  //       sugar,
+  //       bpSystolic,
+  //       bpDiastolic,
+  //     };
+  //     setEntries([newEntry, ...entries]);
+  //   }
+
+  //   setIsModalOpen(false);
+  //   setEditingEntry(null);
+  // };
+
 
   const filteredEntries = entries.filter(entry => entry.date === selectedDate.toLocaleDateString());
   const entriesCount = filteredEntries.length;
@@ -99,31 +161,37 @@ const ActivityLog = () => {
     const numberWords = ["Zero", "One", "Two", "Three", "Four", "Five"];
     return `${numberWords[count] || count} entries found`;
   };
+  
+// --- MONTHLY SEGREGATION & SORTING LOGIC ---
+const getGroupedEntriesByMonth = () => {
+  // 1. Sort using standard comparison logic instead of direct subtraction
+  const sortedEntries = [...entries].sort((a, b) => {
+    if (sortOrder === 'desc') {
+      // Newest first (comparing values as strings or numbers)
+      return String(b.id).localeCompare(String(a.id));
+    } else {
+      // Oldest first
+      return String(a.id).localeCompare(String(b.id));
+    }
+  });
+  
+  // 2. We use a Map instead of a plain Object to preserve the chronological order of keys!
+  const groups = new Map<string, HealthEntry[]>();
 
-  // --- MONTHLY SEGREGATION & SORTING LOGIC ---
-  const getGroupedEntriesByMonth = () => {
-    // 1. Sort the underlying flat array based on user's preference
-    const sortedEntries = [...entries].sort((a, b) => {
-      return sortOrder === 'desc' ? b.id - a.id : a.id - b.id;
-    });
-    
-    // 2. We use a Map instead of a plain Object to preserve the chronological order of keys!
-    const groups = new Map<string, HealthEntry[]>();
+  sortedEntries.forEach((entry) => {
+    const entryDate = new Date(entry.date);
+    const monthYearLabel = isNaN(entryDate.getTime()) 
+      ? "Other Records" 
+      : entryDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-    sortedEntries.forEach((entry) => {
-      const entryDate = new Date(entry.date);
-      const monthYearLabel = isNaN(entryDate.getTime()) 
-        ? "Other Records" 
-        : entryDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    if (!groups.has(monthYearLabel)) {
+      groups.set(monthYearLabel, []);
+    }
+    groups.get(monthYearLabel)!.push(entry);
+  });
 
-      if (!groups.has(monthYearLabel)) {
-        groups.set(monthYearLabel, []);
-      }
-      groups.get(monthYearLabel)!.push(entry);
-    });
-
-    return groups;
-  };
+  return groups;
+};
 
   const groupedEntriesMap = getGroupedEntriesByMonth();
 
