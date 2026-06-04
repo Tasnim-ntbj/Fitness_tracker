@@ -11,6 +11,7 @@ export type User = {
     height?: number; 
     gender?: string;
     useMenstrualTracker?:boolean;
+    isOnboardingComplete?:boolean;
   avgCycleLength?: number;
   avgBleedingDays?:number;
   lastPeriodStart?: string; 
@@ -19,6 +20,7 @@ export type User = {
     profileImage?: string ;    
     documentId?: string;
     createdAt?: string;
+
 } | null;
 
 // ২. লগইন বা সাইনআপের জন্য শংসাপত্র

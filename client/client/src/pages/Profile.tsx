@@ -1,22 +1,7 @@
+// 📁 File: src/pages/Profile.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/Appcontext';
 import { User as UserIcon, Upload } from 'lucide-react';
-
-interface UserType {
-  name?: string;
-  email?: string;
-  dob?: string;
-  age?: number;
-  height?: number;
-  gender?: string;
-  bloodGroup?: string;
-  profileImage?: string | null;
-  username?: string;
-  useMenstrualTracker?: boolean;
-  avgCycleLength?: number;
-  avgBleedingDays?: number;
-  lastPeriodStart?: string;
-}
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -27,6 +12,7 @@ const Profile = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // 🎯 Updated default initial states to gracefully bind with incoming onboarding variables
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -36,12 +22,13 @@ const Profile = () => {
     gender: '',
     bloodGroup: '',
     profileImage: null as string | null,
-    useMenstrualTracker: user?.useMenstrualTracker ?? true,
-    avgCycleLength: user?.avgCycleLength || 28,
-    avgBleedingDays: user?.avgBleedingDays || 5,
-    lastPeriodStart: user?.lastPeriodStart || ''
+    useMenstrualTracker: true,
+    avgCycleLength: 28,
+    avgBleedingDays: 5,
+    lastPeriodStart: ''
   });
 
+  // 🔄 Syncing local state whenever the global user model is hydrated (e.g., from onboarding or backend)
   useEffect(() => {
     if (user) {
       setFormData({
@@ -86,31 +73,84 @@ const Profile = () => {
     }
   };
 
-  const handleSave = () => {
+  //func to calculate age from dob
+  const calculateAge = (dateOfBirth: string): number => {
+    if (!dateOfBirth) return 0;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDifference = today.getMonth() - birthDate.getMonth();
+
+    if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  //local handlesave:
+  // const handleSave = () => {
+  //   setIsSaving(true);
+    
+  //   // Automatically recalculate the age layer if they modified their DOB input stream
+  //   const coreAge = formData.dob ? calculateAge(formData.dob) : (formData.age !== '' ? Number(formData.age) : user?.age);
+  //   const updatedHeight = formData.height !== '' ? Number(formData.height) : user?.height;
+
+  //   // Dispatches a state updates package downstream to your AppProvider contexts layout
+  //   updateUserProfile({
+  //     name: formData.name || user?.name,
+  //     email: formData.email || user?.email,
+  //     dob: formData.dob || user?.dob,
+  //     age: coreAge,
+  //     height: updatedHeight,
+  //     gender: formData.gender || user?.gender,
+  //     bloodGroup: formData.bloodGroup || user?.bloodGroup,
+  //     profileImage: formData.profileImage || user?.profileImage,
+  //     useMenstrualTracker: formData.useMenstrualTracker,
+  //     avgCycleLength: formData.useMenstrualTracker ? Number(formData.avgCycleLength) : 0,
+  //     avgBleedingDays: formData.useMenstrualTracker ? Number(formData.avgBleedingDays) : 0,
+  //     lastPeriodStart: formData.useMenstrualTracker ? formData.lastPeriodStart : ''
+  //   });
+    
+  //   setTimeout(() => {
+  //     setIsSaving(false);
+  //     setIsEditing(false); 
+  //     alert("Changes saved successfully!");
+  //   }, 500);
+  // };
+
+  
+  //🚨 handlesave using backend context
+  const handleSave = async () => {
     setIsSaving(true);
     
-    const updatedAge = formData.age !== '' ? Number(formData.age) : user?.age;
+    // 2. Run your runtime age calculation calculations dynamically
+    const coreAge = formData.dob ? calculateAge(formData.dob) : (formData.age !== '' ? Number(formData.age) : user?.age);
     const updatedHeight = formData.height !== '' ? Number(formData.height) : user?.height;
 
-    updateUserProfile({
-      name: formData.name || user?.name,
-      email: formData.email || user?.email,
-      age: updatedAge,
+    // 3. Trigger the appcontext delivery method we broke down 
+    const result = await updateUserProfile({
+      email: formData.email,
+      dob: formData.dob,
+      age: coreAge,
       height: updatedHeight,
-      gender: formData.gender || user?.gender,
-      bloodGroup: formData.bloodGroup || user?.bloodGroup,
-      profileImage: formData.profileImage || user?.profileImage,
+      gender: formData.gender,
+      bloodGroup: formData.bloodGroup,
+      profileImage: formData.profileImage,
       useMenstrualTracker: formData.useMenstrualTracker,
-      avgCycleLength: formData.avgCycleLength,
-      avgBleedingDays: formData.avgBleedingDays,
-      lastPeriodStart: formData.lastPeriodStart
+      avgCycleLength: formData.useMenstrualTracker ? Number(formData.avgCycleLength) : 0,
+      avgBleedingDays: formData.useMenstrualTracker ? Number(formData.avgBleedingDays) : 0,
+      lastPeriodStart: formData.useMenstrualTracker ? formData.lastPeriodStart : ''
     });
-    
-    setTimeout(() => {
-      setIsSaving(false);
-      setIsEditing(false); 
-      alert("Changes saved successfully!");
-    }, 500);
+
+    setIsSaving(false);
+
+    // Look at the result returned from Appcontext
+    if (result && result.success) {
+      setIsEditing(false); // inputs become gray/disabled again
+      alert(result.message || "Changes saved successfully!");
+    } else {
+      alert(result?.message || "Failed to save profile structural updates.");
+    }
   };
 
   if (!user) return (
@@ -189,15 +229,16 @@ const Profile = () => {
                 />
               </div>
 
+              {/* 🔄 Added full Date of Birth field mapping to preserve onboarding integrity */}
               <div className="flex flex-col gap-3">
-                <label className="ml-1 text-sm font-bold tracking-wide text-slate-900 dark:text-white">Age</label>
+                <label className="ml-1 text-sm font-bold tracking-wide text-slate-900 dark:text-white">Date of Birth</label>
                 <input 
-                  type="number" 
-                  value={formData.age}    
-                  onChange={(e) => setFormData({...formData, age: e.target.value})}
+                  type="date" 
+                  value={formData.dob}    
+                  onChange={(e) => setFormData({...formData, dob: e.target.value})}
                   disabled={!isEditing} 
                   className={inputStyle}
-                  placeholder="Enter your age"
+                  max={new Date().toISOString().split("T")[0]}
                 />
               </div>
 
@@ -249,13 +290,12 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Menstrual Cycle Settings (Visible only if Female) */}
-            {formData.gender === 'female' && (
+            {/* Menstrual Cycle Settings (Condition matches lowercase output safely) */}
+            {formData.gender.toLowerCase() === 'female' && (
               <div className="pt-10 mt-12 space-y-8 border-t border-slate-200 dark:border-slate-800">
                 <div className="flex flex-col gap-2">
                   <h3 className="text-lg font-bold text-slate-800 dark:text-white">Menstrual Cycle Settings</h3>
                   
-                  {/* NEW TOGGLE SWITCH CONTROL */}
                   <div className="flex items-center gap-3 mt-2">
                     <input 
                       type="checkbox"
@@ -271,7 +311,6 @@ const Profile = () => {
                   </div>
                 </div>
 
-                {/* Sub settings wrap within conditional check depending on active toggle switch */}
                 <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 transition-all duration-300 ${formData.useMenstrualTracker ? "opacity-100" : "opacity-40 pointer-events-none select-none"}`}>
                   <div className="flex flex-col gap-3">
                     <label className="ml-1 text-sm font-bold tracking-wide text-slate-900 dark:text-white">Average Cycle Length (Days)</label>
@@ -279,7 +318,7 @@ const Profile = () => {
                       type="number" 
                       value={formData.avgCycleLength} 
                       disabled={!isEditing || !formData.useMenstrualTracker}
-                      onChange={(e) => setFormData({ ...formData, avgCycleLength: e.target.value === '' ? '' : Number(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, avgCycleLength: e.target.value === '' ? 0 : Number(e.target.value) })}
                       className={inputStyle}
                     />
                   </div>
@@ -290,7 +329,7 @@ const Profile = () => {
                       type="number" 
                       value={formData.avgBleedingDays} 
                       disabled={!isEditing || !formData.useMenstrualTracker}
-                      onChange={(e) => setFormData({ ...formData, avgBleedingDays: e.target.value === '' ? '' : Number(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, avgBleedingDays: e.target.value === '' ? 0 : Number(e.target.value) })}
                       className={inputStyle}
                     />
                   </div>

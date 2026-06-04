@@ -1,142 +1,224 @@
+// 📁 File: src/context/Appcontext.tsx
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { type ActivityEntry, type User } from "../types";
 import { useNavigate } from "react-router-dom";
-import type { Credentials } from "../assets/types";
-import mockApi from "../assets/mockApi";
 
 interface AppContextType {
-  user: User | null; // Fixed type to allow null
+  user: User | null; 
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
   isUserFetched: boolean;
   fetchUser: (token: string) => Promise<void>;
-  signup: (credentials: Credentials) => Promise<void>;
-  login: (credentials: Credentials) => Promise<void>;
+  signup: (signUpData: any) => Promise<any>; 
+  login: (loginData: any) => Promise<any>;   
   logout: () => void;
-  onboardingCompleted: boolean;
-  setOnboardingCompleted: React.Dispatch<React.SetStateAction<boolean>>;
+  onboardingCompleted: boolean; 
   allActivityLogs: ActivityEntry[];
   setAllActivityLogs: React.Dispatch<React.SetStateAction<ActivityEntry[]>>;
-  updateUserProfile: (updates: Partial<User>) => void;
+  // updateUserProfile: (updates: Partial<User>) => void;  // used for local save
+  updateUserProfile: (updates: Partial<User>) => Promise<any>;
+  completeOnboarding: (onboardingData: any) => Promise<any>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Validation helper updated to match your new requirements (dob, gender, height)
-const checkIsOnboardingComplete = (userData: any): boolean => {
-  // Add some console logs to debug what's happening
-  console.log("Checking user data:", userData);
-  const isComplete = !!(userData?.dob && userData?.gender && userData?.height);
-  console.log("Is onboarding complete?", isComplete);
-  return isComplete;
-};
-
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
-  // Initialize state directly from localStorage to prevent "flicker" on refresh
-  const [user, setUser] = useState<User | null>(() => {
-    const savedUser = localStorage.getItem("user_data");
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
-
-  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
-    const savedUser = localStorage.getItem("user_data");
-    return savedUser ? checkIsOnboardingComplete(JSON.parse(savedUser)) : false;
-  });
-
-  const [isUserFetched, setIsUserFetched] = useState<boolean>(() => 
-    !localStorage.getItem("token")
-  );
-
+  const [user, setUser] = useState<User | null>(null);
+  const [isUserFetched, setIsUserFetched] = useState<boolean>(false);
   const [allActivityLogs, setAllActivityLogs] = useState<ActivityEntry[]>([]);
 
-  // Keep localStorage synced
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem("user_data", JSON.stringify(user));
-      setOnboardingCompleted(checkIsOnboardingComplete(user));
-    } else {
-      localStorage.removeItem("user_data");
-    }
-  }, [user]);
+  // 🎯 DERIVED STATE: Automatically re-evaluates whenever the 'user' object updates
+  const onboardingCompleted = !!user?.isOnboardingComplete;
 
-  const signup = async (credentials: Credentials) => {
-    const { data } = await mockApi.auth.register(credentials);
-    const newUser = { ...data.user, token: data.jwt } as User;
-    setUser(newUser);
-    localStorage.setItem("token", data.jwt);
-    setIsUserFetched(true);
-  };
-const login = async (credentials: Credentials) => {
-    const { data } = await mockApi.auth.login(credentials);
-    const userId = data.user.id; // Get the persistent ID
-    
-    // Retrieve any locally saved profile data for THIS specific user ID
-    const savedProfiles = JSON.parse(localStorage.getItem("user_profiles") || "{}");
-    const localProfile = savedProfiles[userId] || {};
-    
-    // Merge: API user data + the local profile metrics
-    const updatedUser = { 
-      ...data.user, 
-      ...localProfile, 
-      token: data.jwt 
-    } as User;
-    setUser(updatedUser);
-    setOnboardingCompleted(checkIsOnboardingComplete(updatedUser));
-    localStorage.setItem("token", data.jwt);
-    setIsUserFetched(true);
-  };
-
-
-const fetchUser = async (token: string) => {
+  // 🚨 1. BACKEND SIGNUP FLOW
+  const signup = async (signUpData: any) => {
     try {
-      const { data } = await mockApi.user.me();
-      const userId = data.id;
+      const url = "http://localhost:8080/auth/signup"; 
+      const response = await fetch(url, { 
+        method: "POST", 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(signUpData) 
+      });
       
-      const savedProfiles = JSON.parse(localStorage.getItem("user_profiles") || "{}");
-      const localProfile = savedProfiles[userId] || {};
+      return await response.json(); 
+    } catch (error) {
+      console.error("Signup exception loop:", error);
+      return { success: false, message: "Server connection failed during registration." };
+    }
+  };
+
+  // 🚨 2. BACKEND LOGIN FLOW
+  const login = async (loginData: any) => {
+    try {
+      const response = await fetch("http://localhost:8080/auth/login", { 
+        method: "POST", 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginData)
+      });
       
-      const updatedUser = { ...data, ...localProfile, token } as User;
+      const result = await response.json();
       
-      setUser(updatedUser);
-      setOnboardingCompleted(checkIsOnboardingComplete(updatedUser));
+      if (result.success) {
+        localStorage.setItem('token', result.jwtToken);
+        localStorage.setItem('loggedUser', result.name || result.user?.name || "");
+
+        // 🎯 FIX: Explicitly map fields out of result.user to protect root context structure
+        const authenticatedUser = {
+          ...(result.user ? result.user : result),
+          token: result.jwtToken
+        } as User;
+
+        setUser(authenticatedUser);
+      }
+      return result; 
+    } catch (error) {
+      console.error(error);
+      return { success: false, message: "Server connection failed" };
+    }
+  };
+
+  // 🚨 3. PERSISTENT REFRESH FETCH PROFILE GATEWAY
+  const fetchUser = async (token: string) => {
+    try {
+      const response = await fetch("http://localhost:8080/user/me", {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (response.ok && data) {
+        // 🎯 FIX: Handle if your /user/me API sends data directly or wraps it in a .user block
+        const userData = data.user ? data.user : data;
+        
+        const updatedUser = { 
+          ...userData, 
+          token 
+        } as User;
+        
+        setUser(updatedUser);
+      } else {
+        logout();
+      }
     } catch (err) {
+      console.error("Profile synchronization exception:", err);
       logout();
     } finally {
       setIsUserFetched(true);
     }
   };
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user_data");
-    setUser(null);
-    setOnboardingCompleted(false);
-    setIsUserFetched(true);
-    navigate("/login");
+
+  // 🚨 4. SUBMIT ONBOARDING DATA
+  const completeOnboarding = async (onboardingData: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      const url = "http://localhost:8080/auth/onboarding"; 
+      
+      const response = await fetch(url, { 
+        method: "PUT", 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(onboardingData)
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setUser((prev) => {
+          if (!prev) return null;
+          const updatedData = result.user ? result.user : result;
+          return {
+            ...prev,
+            ...updatedData, 
+            isOnboardingComplete: true, // Safeguard mapping redundancy
+            token: token
+          };
+        });
+      }
+      return result;
+    } catch (error) {
+      console.error("Failed submitting onboarding profile metadata:", error);
+      return { success: false, message: "Could not link connection to data profile cluster." };
+    }
   };
 
- const updateUserProfile = (updates: Partial<User>) => {
-    setUser((prevUser) => {
-      if (!prevUser) return null;
-      const updated = { ...prevUser, ...updates };
+  //🚨Logout 
+  const logout = async () => {
+    try {
+      const token = localStorage.getItem('token');
       
-      // Save to a keyed storage object
-      const savedProfiles = JSON.parse(localStorage.getItem("user_profiles") || "{}");
-      savedProfiles[updated.id] = { ...savedProfiles[updated.id], ...updated };
-      localStorage.setItem("user_profiles", JSON.stringify(savedProfiles));
-      
-      if (checkIsOnboardingComplete(updated)) {
-        setOnboardingCompleted(true);
+      if (token) {
+        await fetch("http://localhost:8080/auth/logout", {
+          method: "POST",
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
       }
-      return updated;
-    });
+    } catch (error) {
+      console.error("Optional server-side logout sweep failed:", error);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('loggedUser');
+      setUser(null);
+      setIsUserFetched(true);
+      navigate("/login");
+    }
+  };
+
+  // LOCAL PROFILE COMPONENT UPDATE
+  // const updateUserProfile = (updates: Partial<User>) => {
+  //   setUser((prevUser) => {
+  //     if (!prevUser) return null;
+  //     return { ...prevUser, ...updates };
+  //   });
+  // };
+
+  // 🚨 UPDATE PROFILE VIA AXIOS/FETCH API
+  const updateUserProfile = async (updates: Partial<User>) => {
+    try {
+      const token = localStorage.getItem('token');// Retrieve the user's login key
+      const url = "http://localhost:8080/auth/update-profile";
+
+      const response = await fetch(url, {
+        method: "PUT",// PUT means we are replacing/updating existing resource data
+        headers: {
+          'Content-Type': 'application/json',// Telling the server: "We are sending text formatted as JSON"
+          'Authorization': `Bearer ${token}`// Telling the server: "Here is proof of who I am"
+        },
+        body: JSON.stringify(updates)// Turn the raw JavaScript object into a flat string for transit (JSON)
+      });
+
+      const result = await response.json();// Wait for the server to reply and parse its response back into a JS object
+
+
+      //if result is success 
+      if (result.success) {
+        // Update the React global state
+        setUser((prevUser) => {
+          if (!prevUser) return null;
+          const updatedData = result.user ? result.user : result;
+          return {
+            ...prevUser,
+            ...updatedData,
+            token: token // Keep the token saved in state
+          };
+        });
+      }
+      return result; // Pass the result object back to the Profile page component so it can show an alert
+    } catch (error) {
+      console.error("Failed submitting updated profile payload metrics:", error);
+      return { success: false, message: "Could not establish database syncing pipeline." };
+    }
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      fetchUser(token);
-      mockApi.activityLogs.list().then(res => setAllActivityLogs(res.data));
+    const savedToken = localStorage.getItem('token');
+    if (savedToken) {
+      fetchUser(savedToken);
+    } else {
+      setIsUserFetched(true);
     }
   }, []);
 
@@ -148,11 +230,11 @@ const fetchUser = async (token: string) => {
     signup,
     login,
     logout,
-    onboardingCompleted,
-    setOnboardingCompleted,
+    onboardingCompleted, 
     allActivityLogs,
     setAllActivityLogs,
     updateUserProfile,
+    completeOnboarding 
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
