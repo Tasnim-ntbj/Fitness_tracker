@@ -13,7 +13,7 @@ interface HealthEntry {
 }
 
 const ActivityLog = () => {
-  const { user, saveHealthEntry, updateHealthEntry } = useAppContext();
+  const { user, saveHealthEntry, updateHealthEntry, deleteHealthEntry } = useAppContext();
   
   const [entries, setEntries] = useState<HealthEntry[]>(() => {
     const savedEntries = localStorage.getItem('health_logs');
@@ -55,11 +55,29 @@ const ActivityLog = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (window.confirm("Delete this health record?")) {
+  // const handleDelete = (id: number) => {
+  //   if (window.confirm("Delete this health record?")) {
+  //     setEntries(entries.filter(entry => entry.id !== id));
+  //   }
+  // };
+
+ //handleDelete using Backend
+ const handleDelete = async (id: number | string) => {
+  // Confirm with the user before wiping records permanently
+  if (window.confirm("Are you absolutely sure you want to delete this health record permanently?")) {
+    
+    // Fire the async request to your backend server
+    const result = await deleteHealthEntry(id);
+
+    if (result && result.success) {
+      // Instantly filter out the deleted log from your local React state array so the UI updates live
       setEntries(entries.filter(entry => entry.id !== id));
+      alert(result.message || "Record successfully cleared.");
+    } else {
+      alert(result?.message || "Failed to drop entry document row.");
     }
-  };
+  }
+}; 
 
 //handle save using backend
 const handleSave = async (e: React.FormEvent) => {

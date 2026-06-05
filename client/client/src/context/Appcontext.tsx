@@ -19,7 +19,7 @@ interface AppContextType {
   completeOnboarding: (onboardingData: any) => Promise<any>;//onboarding page
   saveHealthEntry: (entryData: any) => Promise<any>;//activity log page_add entry buttton
   updateHealthEntry: (id: string | number, entryData: any) => Promise<any>;//act_log page_ edit logs
-
+  deleteHealthEntry: (id: string | number) => Promise<any>;//act_log page delete logs
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -269,6 +269,26 @@ const updateHealthEntry = async (id: string | number, entryData: any) => {
   }
 };
 
+//edit delete log on act_log
+const deleteHealthEntry = async (id: string | number) => {
+  try {
+    const token = localStorage.getItem('token');
+    const url = `http://localhost:8080/health/delete-entry/${id}`; // Passes the unique ID inside the URL path
+
+    const response = await fetch(url, {
+      method: "DELETE", // 🛠️ Uses the HTTP DELETE verb
+      headers: {
+        'Authorization': `Bearer ${token}` // Protects the route using your security token
+      }
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error("Failed executing entry deletion link:", error);
+    return { success: false, message: "Server communication error during removal." };
+  }
+};
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     if (savedToken) {
@@ -292,7 +312,8 @@ const updateHealthEntry = async (id: string | number, entryData: any) => {
     updateUserProfile,
     completeOnboarding,
     saveHealthEntry,
-    updateHealthEntry 
+    updateHealthEntry,
+    deleteHealthEntry
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

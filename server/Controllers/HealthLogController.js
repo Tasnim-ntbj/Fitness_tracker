@@ -70,4 +70,35 @@ const updateHealthLog = async (req, res) => {
     });
   }
 };
-module.exports = { createHealthLog, updateHealthLog };
+
+const deleteHealthLog = async (req, res) => {
+  try {
+    const userId = req.user._id; // Extracted safely from user token via your ensureAuthenticated security guard middleware
+    const { id } = req.params; // Grabs the log document ID string from the URL parameter
+
+    // 💥 Find the log and make sure it belongs to the requesting user before deleting!
+    const deletedLog = await HealthLogModel.findOneAndDelete({
+      _id: id,
+      userId: userId,
+    });
+
+    if (!deletedLog) {
+      return res.status(404).json({
+        success: false,
+        message: "Record row not found or unauthorized access.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Health record removed successfully from database cluster!",
+    });
+  } catch (error) {
+    console.error("Delete record exception:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to remove record from system cluster.",
+    });
+  }
+};
+module.exports = { createHealthLog, updateHealthLog, deleteHealthLog };
