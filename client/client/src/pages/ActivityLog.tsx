@@ -5,6 +5,7 @@ import { useAppContext } from '../context/Appcontext';
 
 interface HealthEntry {
   id: number|string;
+  _id:string;
   date: string;
   weight: string;
   sugar: string;
@@ -13,12 +14,17 @@ interface HealthEntry {
 }
 
 const ActivityLog = () => {
-  const { user, saveHealthEntry, updateHealthEntry, deleteHealthEntry } = useAppContext();
+  const { saveHealthEntry, updateHealthEntry, deleteHealthEntry,getUserHealthLogs } = useAppContext();
   
-  const [entries, setEntries] = useState<HealthEntry[]>(() => {
-    const savedEntries = localStorage.getItem('health_logs');
-    return savedEntries ? JSON.parse(savedEntries) : [];
-  });
+  //from local storage _used during
+  // const [entries, setEntries] = useState<HealthEntry[]>(() => {
+  //   const savedEntries = localStorage.getItem('health_logs');
+  //   return savedEntries ? JSON.parse(savedEntries) : [];
+  // });
+
+
+  //loading from backend
+  const [entries, setEntries] = useState<HealthEntry[]>([]);
 
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -36,9 +42,43 @@ const ActivityLog = () => {
   const [bpSystolic, setBpSystolic] = useState('');
   const [bpDiastolic, setBpDiastolic] = useState('');
 
-  useEffect(() => {
-    localStorage.setItem('health_logs', JSON.stringify(entries));
-  }, [entries]);
+  // useEffect(() => {
+  //   localStorage.setItem('health_logs', JSON.stringify(entries));
+  // }, [entries]);
+
+  
+//backend fetch 
+useEffect(() => {
+    const fetchLogsPipeline = async () => {
+      const result = await getUserHealthLogs();
+      // If your context returns the raw logs array or wraps it in an object
+      if (result && Array.isArray(result)) {
+        const mapped = result.map((log: any) => ({
+          id: log._id,
+          _id: log._id,
+          date: log.date,
+          weight: String(log.weight),
+          sugar: String(log.sugar),
+          bpSystolic: String(log.bpSystolic),
+          bpDiastolic: String(log.bpDiastolic)
+        }));
+        setEntries(mapped);
+      } else if (result && result.logs) {
+        const mapped = result.logs.map((log: any) => ({
+          id: log._id,
+          _id: log._id,
+          date: log.date,
+          weight: String(log.weight),
+          sugar: String(log.sugar),
+          bpSystolic: String(log.bpSystolic),
+          bpDiastolic: String(log.bpDiastolic)
+        }));
+        setEntries(mapped);
+      }
+    };
+    fetchLogsPipeline();
+  }, []); 
+
 
   const handleOpenAddModal = () => {
     setEditingEntry(null);
@@ -71,7 +111,7 @@ const ActivityLog = () => {
 
     if (result && result.success) {
       // Instantly filter out the deleted log from your local React state array so the UI updates live
-      setEntries(entries.filter(entry => entry.id !== id));
+      setEntries(entries.filter(entry => entry.id !== id && entry._id !== id));
       alert(result.message || "Record successfully cleared.");
     } else {
       alert(result?.message || "Failed to drop entry document row.");
@@ -100,6 +140,7 @@ const handleSave = async (e: React.FormEvent) => {
       // Re-map the updated database properties into your frontend React component display state structure
       const formattedUpdatedEntry: HealthEntry = {
         id: result.log._id, // Keep the same MongoDB reference ID string intact
+        _id: result.log._id,
         date: result.log.date,
         weight: String(result.log.weight),
         sugar: String(result.log.sugar),
@@ -123,6 +164,7 @@ const handleSave = async (e: React.FormEvent) => {
     if (result && result.success) {
       const formattedNewEntry: HealthEntry = {
         id: result.log._id,
+        _id: result.log._id,
         date: result.log.date,
         weight: String(result.log.weight),
         sugar: String(result.log.sugar),
@@ -435,7 +477,7 @@ interface LogCardProps {
   entry: HealthEntry;
   isEditMode: boolean;
   handleOpenEditModal: (entry: HealthEntry) => void;
-  handleDelete: (id: number) => void;
+  handleDelete: (id: number|string) => void;
   isHistoryItem?: boolean;
 }
 
@@ -488,7 +530,8 @@ const LogCard = ({ entry, isEditMode, handleOpenEditModal, handleDelete, isHisto
             <button onClick={() => handleOpenEditModal(entry)} className="p-3 text-blue-600 transition-all bg-blue-500/10 dark:text-blue-400 hover:bg-blue-600 hover:text-white rounded-xl">
               <Pencil size={18} />
             </button>
-            <button onClick={() => handleDelete(entry.id)} className="p-3 transition-all bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl">
+            <button onClick={() => handleDelete(entry.id)} 
+            className="p-3 transition-all bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl">
               <Trash2 size={18} />
             </button>
           </div>

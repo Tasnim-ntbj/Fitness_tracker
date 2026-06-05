@@ -225,10 +225,38 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const getMyProfile = async (req, res) => {
+  try {
+    // 1. req.user._id is automatically unpacked from the JWT by your ensureAuthenticated middleware
+    const userId = req.user._id;
+
+    // 2. Fetch the user document from MongoDB without leaking their hashed password string
+    const user = await UserModel.findById(userId).select("-password");
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User profile record not found." });
+    }
+
+    // 3. Return the user data to fulfill the frontend's fetchUser payload expectation
+    return res.status(200).json({
+      success: true,
+      user: user,
+    });
+  } catch (error) {
+    console.error("Profile payload retrieval error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error validating user session.",
+    });
+  }
+};
 module.exports = {
   signup,
   login,
   completeOnboarding,
   logout,
-  updateProfile, // <-- Added here
+  updateProfile,
+  getMyProfile,
 };
