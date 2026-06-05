@@ -11,7 +11,8 @@ interface AppContextType {
   signup: (signUpData: any) => Promise<any>; 
   login: (loginData: any) => Promise<any>;   
   logout: () => void;
-  onboardingCompleted: boolean; 
+  onboardingCompleted: boolean;
+  //act_log  
   allActivityLogs: ActivityEntry[];
   setAllActivityLogs: React.Dispatch<React.SetStateAction<ActivityEntry[]>>;
   // updateUserProfile: (updates: Partial<User>) => void;  // used for local save
@@ -20,6 +21,10 @@ interface AppContextType {
   saveHealthEntry: (entryData: any) => Promise<any>;//activity log page_add entry buttton
   updateHealthEntry: (id: string | number, entryData: any) => Promise<any>;//act_log page_ edit logs
   deleteHealthEntry: (id: string | number) => Promise<any>;//act_log page delete logs
+  //dashboard
+  getUserHealthLogs: () => Promise<any>;
+
+
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -31,10 +36,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [isUserFetched, setIsUserFetched] = useState<boolean>(false);
   const [allActivityLogs, setAllActivityLogs] = useState<ActivityEntry[]>([]);
 
-  // 🎯 DERIVED STATE: Automatically re-evaluates whenever the 'user' object updates
+  // 🎯 Automatically re-evaluates whenever the 'user' object updates
   const onboardingCompleted = !!user?.isOnboardingComplete;
 
-  // 🚨 1. BACKEND SIGNUP FLOW
+  // 🚨 1. BACKEND SIGNUP 
   const signup = async (signUpData: any) => {
     try {
       const url = "http://localhost:8080/auth/signup"; 
@@ -51,7 +56,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // 🚨 2. BACKEND LOGIN FLOW
+  // 🚨 2. BACKEND LOGIN 
   const login = async (loginData: any) => {
     try {
       const response = await fetch("http://localhost:8080/auth/login", { 
@@ -289,6 +294,34 @@ const deleteHealthEntry = async (id: string | number) => {
     return { success: false, message: "Server communication error during removal." };
   }
 };
+
+const getUserHealthLogs = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const url = "http://localhost:8080/health/get-entries"; // 🚀 Your backend GET endpoint
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        'Authorization': `Bearer ${token}` // Secure identity token verification
+      }
+    });
+
+    const result = await response.json();
+    
+    if (result.success && result.logs) {
+      // Hydrate our global context array cache with the backend results
+      setAllActivityLogs(result.logs);
+    }
+    return result;
+  } catch (error) {
+    console.error("Failed fetching live health documents:", error);
+    return { success: false, message: "Database syncing error." };
+  }
+};
+
+
+
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     if (savedToken) {
@@ -313,7 +346,8 @@ const deleteHealthEntry = async (id: string | number) => {
     completeOnboarding,
     saveHealthEntry,
     updateHealthEntry,
-    deleteHealthEntry
+    deleteHealthEntry, 
+    getUserHealthLogs
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

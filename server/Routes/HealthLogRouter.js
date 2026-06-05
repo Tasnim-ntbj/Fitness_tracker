@@ -3,6 +3,7 @@ const {
   createHealthLog,
   updateHealthLog,
   deleteHealthLog,
+  getHealthLogs,
 } = require("../Controllers/HealthLogController");
 const ensureAuthenticated = require("../Middlewares/EnsureAuth");
 
@@ -10,5 +11,5 @@ const ensureAuthenticated = require("../Middlewares/EnsureAuth");
 router.post("/add-entry", ensureAuthenticated, createHealthLog);
 router.put("/update-entry/:id", ensureAuthenticated, updateHealthLog);
 router.delete("/delete-entry/:id", ensureAuthenticated, deleteHealthLog);
-
+router.get("/get-entries", ensureAuthenticated, getHealthLogs);
 module.exports = router;

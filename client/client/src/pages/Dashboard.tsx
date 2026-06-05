@@ -9,7 +9,7 @@ import CycleHistoryChart from "./CycleHistoryChart";
 import { ChevronLeft, ChevronRight } from "lucide-react"; // Make sure to have lucide-react or change to basic strings
 
 interface HealthEntry {
-  id: number;
+  id: number|string;
   date: string;
   weight: string;
   sugar: string;
@@ -17,43 +17,89 @@ interface HealthEntry {
   bpDiastolic: string;
   bmi: string;
 }
-
 const Dashboard = () => {
-  const { user } = useAppContext();
+  // 1. Pull the new getter function out of context
+  const { user, getUserHealthLogs } = useAppContext();
+  
+  const [entries, setEntries] = useState<HealthEntry[]>([]);
   const [lastEntry, setLastEntry] = useState<HealthEntry | null>(null);
   const [calculatedBmi, setCalculatedBmi] = useState<string>("--.-");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewType, setViewType] = useState<"bar" | "line">("bar");
-  const [entries, setEntries] = useState<HealthEntry[]>([]);
-  
-  // Track which week of the month we are looking at (0 to 4)
   const [currentWeekIndex, setCurrentWeekIndex] = useState<number>(0);
 
   const userHeightCm = user?.height || 164;
 
-  // Sync state with local storage logs
+  // 2. TRIGGER LIVE FETCH ON COMPONENT MOUNT
   useEffect(() => {
-    const savedEntries = localStorage.getItem("health_logs");
-    if (savedEntries) {
-      const parsed: HealthEntry[] = JSON.parse(savedEntries);
-      setEntries(parsed);
-
-      const formattedSelectedDate = selectedDate.toLocaleDateString();
-      const dayEntry = parsed.find((entry) => entry.date === formattedSelectedDate);
-      setLastEntry(dayEntry || null);
-
-      if (dayEntry) {
-        const weight = parseFloat(dayEntry.weight);
-        if (weight > 0 && userHeightCm > 0) {
-          const heightInMeters = userHeightCm / 100;
-          const bmiValue = weight / (heightInMeters * heightInMeters);
-          setCalculatedBmi(bmiValue.toFixed(1));
-        }
-      } else {
-        setCalculatedBmi("--.-");
+    const fetchLiveClusterData = async () => {
+      const result = await getUserHealthLogs();
+      if (result && result.success && result.logs) {
+        // Map backend mongo keys (_id, number metrics) to match your frontend dashboard interface state
+        const formattedLogs: HealthEntry[] = result.logs.map((log: any) => ({
+          id: log._id,
+          date: log.date, // Assumes format matches layout expectation e.g., "M/D/YYYY" or "DD/MM/YYYY"
+          weight: String(log.weight || ""),
+          sugar: String(log.sugar || ""),
+          bpSystolic: String(log.bpSystolic || ""),
+          bpDiastolic: String(log.bpDiastolic || "")
+        }));
+        setEntries(formattedLogs);
       }
+    };
+
+    fetchLiveClusterData();
+  }, []); // Fires once when dashboard opens up!
+
+  // 3. LISTEN & LIVE EXTRACT CARDS FOR SELECTED DATE
+  useEffect(() => {
+    if (entries.length === 0) {
+      setLastEntry(null);
+      setCalculatedBmi("--.-");
+      return;
     }
-  }, [selectedDate, userHeightCm]);
+
+    const formattedSelectedDate = selectedDate.toLocaleDateString();
+    // Look through live array state for an entry matching the selected calendar date
+    const dayEntry = entries.find((entry) => entry.date === formattedSelectedDate);
+    setLastEntry(dayEntry || null);
+
+    // If an entry exists for that day, automatically recalculate metric cards live
+    if (dayEntry) {
+      const weight = parseFloat(dayEntry.weight);
+      if (weight > 0 && userHeightCm > 0) {
+        const heightInMeters = userHeightCm / 100;
+        const bmiValue = weight / (heightInMeters * heightInMeters);
+        setCalculatedBmi(bmiValue.toFixed(1));
+      }
+    } else {
+      setCalculatedBmi("--.-");
+    }
+  }, [selectedDate, entries, userHeightCm]); // Calculates instantly when calendar dates shift!
+
+  // Sync state with local storage logs
+  // useEffect(() => {
+  //   const savedEntries = localStorage.getItem("health_logs");
+  //   if (savedEntries) {
+  //     const parsed: HealthEntry[] = JSON.parse(savedEntries);
+  //     setEntries(parsed);
+
+  //     const formattedSelectedDate = selectedDate.toLocaleDateString();
+  //     const dayEntry = parsed.find((entry) => entry.date === formattedSelectedDate);
+  //     setLastEntry(dayEntry || null);
+
+  //     if (dayEntry) {
+  //       const weight = parseFloat(dayEntry.weight);
+  //       if (weight > 0 && userHeightCm > 0) {
+  //         const heightInMeters = userHeightCm / 100;
+  //         const bmiValue = weight / (heightInMeters * heightInMeters);
+  //         setCalculatedBmi(bmiValue.toFixed(1));
+  //       }
+  //     } else {
+  //       setCalculatedBmi("--.-");
+  //     }
+  //   }
+  // }, [selectedDate, userHeightCm]);
 
   // Set the week view to match whatever day is picked on the calendar
   useEffect(() => {

@@ -101,4 +101,34 @@ const deleteHealthLog = async (req, res) => {
     });
   }
 };
-module.exports = { createHealthLog, updateHealthLog, deleteHealthLog };
+
+const getHealthLogs = async (req, res) => {
+  try {
+    // 🛡️ Grabs the authenticated user's ID securely injected by your middleware token check
+    const userId = req.user._id;
+
+    // Fetch entries belonging to this user and sort them (newest date first)
+    const logs = await HealthLogModel.find({ userId: userId }).sort({
+      date: -1,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Health cluster records synchronized successfully.",
+      logs: logs,
+    });
+  } catch (error) {
+    console.error("Fetch health records exception:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server cluster error while retrieving health entries.",
+    });
+  }
+};
+
+module.exports = {
+  createHealthLog,
+  updateHealthLog,
+  deleteHealthLog,
+  getHealthLogs,
+};
