@@ -15,7 +15,7 @@ app.get("/ping", (req, res) => {
 });
 
 app.use(bodyParser.json());
-app.use(cors());
+app.use(cors()); //allows calls from frontend to backend
 app.use("/auth", AuthRouter);
 app.use("/health", HealthRouter);
 

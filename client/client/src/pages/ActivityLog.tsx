@@ -16,7 +16,7 @@ interface HealthEntry {
 const ActivityLog = () => {
   const { saveHealthEntry, updateHealthEntry, deleteHealthEntry,getUserHealthLogs } = useAppContext();
   
-  //from local storage _used during
+  //from local storage _used during frontend
   // const [entries, setEntries] = useState<HealthEntry[]>(() => {
   //   const savedEntries = localStorage.getItem('health_logs');
   //   return savedEntries ? JSON.parse(savedEntries) : [];
@@ -133,11 +133,11 @@ const handleSave = async (e: React.FormEvent) => {
   };
 
   if (editingEntry) {
-    // 🌟 ACTIVE LIVE DATABASE UPDATE PIPELINE
+    
     const result = await updateHealthEntry(editingEntry.id, payload);
 
     if (result && result.success) {
-      // Re-map the updated database properties into your frontend React component display state structure
+      // Mapping the updated database properties into frontend display state structure
       const formattedUpdatedEntry: HealthEntry = {
         id: result.log._id, // Keep the same MongoDB reference ID string intact
         _id: result.log._id,
@@ -158,7 +158,7 @@ const handleSave = async (e: React.FormEvent) => {
     }
 
   } else {
-    // 🎯 Creating a completely new record in MongoDB (Your current code)
+    //  Creating a completely new record in MongoDB 
     const result = await saveHealthEntry(payload);
 
     if (result && result.success) {
@@ -235,7 +235,7 @@ const getGroupedEntriesByMonth = () => {
     }
   });
   
-  // 2. We use a Map instead of a plain Object to preserve the chronological order of keys!
+  // 2. We use a Map instead of a plain Object to preserve the chronological order of keys
   const groups = new Map<string, HealthEntry[]>();
 
   sortedEntries.forEach((entry) => {

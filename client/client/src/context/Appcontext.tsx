@@ -1,4 +1,4 @@
-// 📁 File: src/context/Appcontext.tsx
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { type ActivityEntry, type User } from "../types";
 import { useNavigate } from "react-router-dom";

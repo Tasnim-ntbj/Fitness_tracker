@@ -1,4 +1,3 @@
-// 📁 File: Middlewares/EnsureAuth.js
 const jwt = require("jsonwebtoken");
 
 const ensureAuthenticated = (req, res, next) => {
@@ -9,7 +8,6 @@ const ensureAuthenticated = (req, res, next) => {
       .json({ success: false, message: "JWT token is required" });
   }
 
-  // Expecting format: "Bearer <token>"
   const token = authHeader.split(" ")[1];
   if (!token) {
     return res

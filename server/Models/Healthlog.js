@@ -1,15 +1,14 @@
-// 📁 File: backend/Models/HealthLog.js
 const mongoose = require("mongoose");
 
 const HealthLogSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "users", // References your User Model collection
+      ref: "users",
       required: true,
     },
     date: {
-      type: String, // Stored as local date string (e.g., "6/4/2026") matching your frontend custom calendar format
+      type: String,
       required: true,
     },
     weight: {
@@ -30,6 +29,6 @@ const HealthLogSchema = new mongoose.Schema(
     },
   },
   { timestamps: true },
-); // timestamps: Automatically gives createdAt and updatedAt fields
+);
 
 module.exports = mongoose.model("health_logs", HealthLogSchema);

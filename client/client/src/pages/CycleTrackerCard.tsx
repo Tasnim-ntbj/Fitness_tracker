@@ -99,7 +99,7 @@ const CycleTrackerCard = ({ selectedDate }: CycleTrackerCardProps) => {
     };
   });
 
- // We show the card if gender is female AND tracker is enabled.
+ // show the card if gender is female AND tracker is enabled.
 const isEligible = gender === 'female' && shouldShowTracker;
 
 if (!isEligible) return null;

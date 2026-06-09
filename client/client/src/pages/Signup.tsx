@@ -1,4 +1,4 @@
-// 📁 File: src/pages/Signup.tsx
+
 import { AtSignIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon } from "lucide-react"
 import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
@@ -50,7 +50,7 @@ const Signup: React.FC = () => {
         toast.success(message || "Account created successfully!");
         
         setTimeout(() => {
-          // 🎯 FIX: Evaluate onboarding completion immediately following registration block
+          //  Evaluate onboarding completion immediately following registration block
           const userData = result.user ? result.user : result;
           
           if (userData?.isOnboardingComplete) {

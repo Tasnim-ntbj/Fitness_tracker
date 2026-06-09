@@ -1,4 +1,4 @@
-// 📁 File: src/pages/Profile.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/Appcontext';
 import { User as UserIcon, Upload } from 'lucide-react';

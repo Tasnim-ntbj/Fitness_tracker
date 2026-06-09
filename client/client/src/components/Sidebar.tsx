@@ -1,4 +1,4 @@
-// 📁 File: src/components/Sidebar.tsx
+
 import { useAppContext } from "../context/Appcontext";
 import { NavLink } from "react-router-dom";
 import { ActivityIcon, HomeIcon, UserIcon, Moon, Sun, LogOut, LayoutDashboard, Bot } from "lucide-react";

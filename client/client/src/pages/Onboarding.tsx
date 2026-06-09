@@ -1,4 +1,4 @@
-// 📁 File: src/pages/Onboarding.tsx
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/Appcontext";
@@ -15,7 +15,7 @@ interface OnboardingData {
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  // ⚡ Destructure handlers correctly from unified custom hook call
+  
   const { completeOnboarding } = useAppContext();
 
   const [step, setStep] = useState<number>(1);
@@ -66,7 +66,7 @@ const Onboarding = () => {
     if (step > 1) setStep(step - 1);
   };
 
-  // 🔥 FIX: Convert submission payload sequence to hit the backend directly
+  // Convert submission payload sequence to hit the backend directly
   const handleSubmit = async () => {
     const calculatedAge = calculateAge(formData.dob);
 
@@ -84,7 +84,7 @@ const Onboarding = () => {
     try {
       const response = await completeOnboarding(submissionPayload);
       if (response.success) {
-        // Redirect directly since context state handles the state flags safely
+        
         navigate("/dashboard", { replace: true });
       } else {
         alert(response.message || "Failed to update backend onboarding metadata profile configuration.");
@@ -144,7 +144,7 @@ const Onboarding = () => {
                     max={new Date().toISOString().split("T")[0]}
                     value={formData.dob}
                     onChange={(e) => updateFields({ dob: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm transition-colors [color-scheme:dark]"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm transition-colors [scheme:dark]"
                   />
                   {formData.dob && (
                     <p className="pl-1 text-xs font-medium text-blue-400">Calculated Age: {calculateAge(formData.dob)} years old</p>
@@ -209,7 +209,7 @@ const Onboarding = () => {
                     type="date"
                     value={formData.lastPeriodStart}
                     onChange={(e) => updateFields({ lastPeriodStart: e.target.value })}
-                    className="w-full p-3 text-white border rounded-xl bg-slate-800 border-slate-700 [color-scheme:dark]"
+                    className="w-full p-3 text-white border rounded-xl bg-slate-800 border-slate-700 [scheme:dark]"
                   />
                 </div>
                 <div>

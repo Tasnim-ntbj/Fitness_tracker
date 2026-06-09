@@ -1,4 +1,3 @@
-// 📁 File: backend/controllers/authController.js
 const UserModel = require("../Models/User");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -13,7 +12,7 @@ const signup = async (req, res) => {
         .json({ message: "User already exists, Please login", success: false });
     }
 
-    // 🎯 FIX: Explicitly initialize onboarding to false upon account registration
+    //else creates a new user Model instance
     const userModel = new UserModel({
       name,
       email,
@@ -27,7 +26,8 @@ const signup = async (req, res) => {
     res.status(201).json({
       message: "Signup successfully",
       success: true,
-      // 🎯 Return an initial user object structure to match login expectation rules
+
+      //return user name and email and onboariding status false for new user
       user: {
         name,
         email,
@@ -47,11 +47,11 @@ const login = async (req, res) => {
     const { email, password } = req.body;
     const user = await UserModel.findOne({ email });
     const errMessage = "Email or password is incorrect";
-
+    //compare email with existing emails
     if (!user) {
       return res.status(403).json({ message: errMessage, success: false });
     }
-
+    //compare encrypted password
     const isPassEqual = await bcrypt.compare(password, user.password);
     if (!isPassEqual) {
       return res.status(403).json({ message: errMessage, success: false });
@@ -68,7 +68,7 @@ const login = async (req, res) => {
       success: true,
       jwtToken,
       name: user.name,
-      // 🎯 FIX: Ensure fallback evaluations resolve strictly to false if missing
+
       user: {
         _id: user._id,
         name: user.name,
@@ -89,7 +89,7 @@ const login = async (req, res) => {
 
 const completeOnboarding = async (req, res) => {
   try {
-    const userId = req.user._id || req.user.id;
+    const userId = req.user._id || req.user.id; //_id string id number
     const {
       dob,
       gender,
@@ -108,12 +108,12 @@ const completeOnboarding = async (req, res) => {
           "Missing required profile parameters (gender, height, and dob are mandatory).",
       });
     }
-
+    //saves the onboarding initial information to the backend user schema
     const onboardingUpdates = {
       dob,
       gender: gender.toLowerCase(),
       height: Number(height),
-      bloodGroup: bloodGroup || "",
+      bloodGroup: bloodGroup || "", //optional
       useMenstrualTracker: !!useMenstrualTracker,
       avgCycleLength: useMenstrualTracker ? Number(avgCycleLength) : 28,
       avgBleedingDays: useMenstrualTracker ? Number(avgBleedingDays) : 5,
@@ -126,6 +126,9 @@ const completeOnboarding = async (req, res) => {
       { $set: onboardingUpdates },
       { new: true, runValidators: true },
     ).select("-password");
+    //The `.select("-password")` chain prevents the user's
+    //  sensitive password hash from leaking into the JSON response
+    // back to the frontend.
 
     if (!updatedUser) {
       return res
@@ -135,7 +138,7 @@ const completeOnboarding = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Onboarding information successfully linked to cluster!",
+      message: "Onboarding information successfully updated on user schema!",
       user: updatedUser,
     });
   } catch (error) {
@@ -167,7 +170,7 @@ const updateProfile = async (req, res) => {
     //grab user ID
     const userId = req.user._id;
 
-    // 2. Extracting the payload
+    // Extracting the payload
     //Destructure all the incoming form fields that the user typed on the frontend
     const {
       email,
@@ -182,7 +185,7 @@ const updateProfile = async (req, res) => {
       profileImage,
     } = req.body;
 
-    // 3. Normalizing and cleaning the data
+    //  Normalizing and cleaning the data
     // Build the dynamic dataset matching frontend fields
     const profileUpdates = {
       email,
@@ -202,8 +205,8 @@ const updateProfile = async (req, res) => {
     const updatedUser = await UserModel.findByIdAndUpdate(
       userId,
       { $set: profileUpdates },
-      { returnDocument: "after", runValidators: true }, // 'after' returns the newly modified user data instead of the old version
-    ).select("-password"); // Strip out the hashed password for security before sending it back
+      { returnDocument: "after", runValidators: true }, // after _returns the newly modified user data instead of the old version
+    ).select("-password");
 
     if (!updatedUser) {
       return res
@@ -227,10 +230,9 @@ const updateProfile = async (req, res) => {
 
 const getMyProfile = async (req, res) => {
   try {
-    // 1. req.user._id is automatically unpacked from the JWT by your ensureAuthenticated middleware
+    //  req.user._id is decoded from the JWT by your ensureAuthenticated middleware
     const userId = req.user._id;
 
-    // 2. Fetch the user document from MongoDB without leaking their hashed password string
     const user = await UserModel.findById(userId).select("-password");
 
     if (!user) {
@@ -239,7 +241,6 @@ const getMyProfile = async (req, res) => {
         .json({ success: false, message: "User profile record not found." });
     }
 
-    // 3. Return the user data to fulfill the frontend's fetchUser payload expectation
     return res.status(200).json({
       success: true,
       user: user,

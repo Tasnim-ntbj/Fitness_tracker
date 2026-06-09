@@ -2,7 +2,7 @@ const HealthLogModel = require("../Models/Healthlog");
 
 const createHealthLog = async (req, res) => {
   try {
-    const userId = req.user._id; // Extracted safely by your ensureAuthenticated middleware
+    const userId = req.user._id; // Extracted safely by ensureAuthenticated middleware
     const { date, weight, sugar, bpSystolic, bpDiastolic } = req.body;
 
     const newLog = new HealthLogModel({
@@ -76,7 +76,7 @@ const deleteHealthLog = async (req, res) => {
     const userId = req.user._id; // Extracted safely from user token via your ensureAuthenticated security guard middleware
     const { id } = req.params; // Grabs the log document ID string from the URL parameter
 
-    // 💥 Find the log and make sure it belongs to the requesting user before deleting!
+    //  Find the log and make sure it belongs to the requesting user before deleting!
     const deletedLog = await HealthLogModel.findOneAndDelete({
       _id: id,
       userId: userId,
@@ -104,7 +104,7 @@ const deleteHealthLog = async (req, res) => {
 
 const getHealthLogs = async (req, res) => {
   try {
-    // 🛡️ Grabs the authenticated user's ID securely injected by your middleware token check
+    //  Grabs the authenticated user's ID securely injected by your middleware token check
     const userId = req.user._id;
 
     // Fetch entries belonging to this user and sort them (newest date first)

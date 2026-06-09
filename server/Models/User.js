@@ -1,4 +1,3 @@
-// 📁 File: backend/Models/User.js
 const mongoose = require("mongoose");
 
 const UserSchema = new mongoose.Schema({
@@ -6,7 +5,6 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
 
-  // 🎯 THE FIX: Explicitly define the field so MongoDB includes it in queries
   isOnboardingComplete: { type: Boolean, default: false },
 
   gender: { type: String, default: "" },
