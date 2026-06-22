@@ -177,6 +177,7 @@ const updateProfile = async (req, res) => {
       dob,
       height,
       gender,
+
       bloodGroup,
       useMenstrualTracker,
       avgCycleLength,
