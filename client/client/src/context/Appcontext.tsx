@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { type ActivityEntry, type User } from "../types";
 import { useNavigate } from "react-router-dom";
+import AlertModal from "../components/AlertModal";
 
 interface AppContextType {
   user: User | null;
@@ -24,6 +25,16 @@ interface AppContextType {
   deleteHealthEntry: (id: string | number) => Promise<any>; //act_log page delete logs
   //dashboard
   getUserHealthLogs: () => Promise<any>;
+  // Global hook utility to trigger alert modal anywhere in the app
+  triggerAlert: (type: 'success' | 'error', title: string, message: string) => void;
+}
+
+interface AlertModalConfig {
+  isOpen: boolean;
+  type: 'success' | 'error';
+  title: string;
+  message: string;
+  onClose: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -36,8 +47,28 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
   const [allActivityLogs, setAllActivityLogs] = useState<ActivityEntry[]>([]);
 
-  // 🎯 Automatically re-evaluates whenever the 'user' object updates
+  // Automatically re-evaluates whenever the 'user' object updates
   const onboardingCompleted = !!user?.isOnboardingComplete;
+
+  // Custom Alert Modal State Configuration
+  const [alertConfig, setAlertConfig] = useState<AlertModalConfig>({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: '',
+    onClose: () => {},
+  });
+
+  // Unified global alert trigger function
+  const triggerAlert = (type: 'success' | 'error', title: string, message: string) => {
+    setAlertConfig({
+      isOpen: true,
+      type,
+      title,
+      message,
+      onClose: () => setAlertConfig((prev) => ({ ...prev, isOpen: false })),
+    });
+  };
 
   // 🚨 1. BACKEND SIGNUP
   const signup = async (signUpData: any) => {
@@ -48,10 +79,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(signUpData),
       });
-
-      return await response.json();
+      
+     const result = await response.json();
+      return result;
     } catch (error) {
       console.error("Signup exception loop:", error);
+      triggerAlert('error', 'Registration Failed', 'Server connection failed during registration.');
       return {
         success: false,
         message: "Server connection failed during registration.",
@@ -77,17 +110,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           result.name || result.user?.name || "",
         );
 
-        // 🎯 FIX: Explicitly map fields out of result.user to protect root context structure
+        // 🎯 Explicitly map fields out of result.user to protect root context structure
         const authenticatedUser = {
           ...(result.user ? result.user : result),
           token: result.jwtToken,
         } as User;
 
         setUser(authenticatedUser);
+      }else {
+        triggerAlert('error', 'Login Failed', result.message || 'Invalid identification credentials.');
       }
       return result;
     } catch (error) {
       console.error(error);
+      triggerAlert('error', 'Connection error', 'Server connection failed.');
       return { success: false, message: "Server connection failed" };
     }
   };
@@ -101,7 +137,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const data = await response.json();
 
       if (response.ok && data) {
-        // 🎯 FIX: Handle if your /user/me API sends data directly or wraps it in a .user block
+        // Handle if your /user/me API sends data directly or wraps it in a .user block
         const userData = data.user ? data.user : data;
 
         const updatedUser = {
@@ -175,10 +211,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             token: token,
           };
         });
+      }else {
+        triggerAlert('error', 'Onboarding Error', result.message || 'Could not validate profile configurations.');
       }
       return result;
     } catch (error) {
       console.error("Failed submitting onboarding profile metadata:", error);
+      triggerAlert('error', 'Pipeline Error', 'Could not link connection to data profile cluster.');
       return {
         success: false,
         message: "Could not link connection to data profile cluster.",
@@ -223,13 +262,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             token: token, // Keep the token saved in state
           };
         });
+      }else {
+        triggerAlert('error', 'Modification Blocked', result.message || 'Failed updating profile metrics.');
       }
       return result; // Pass the result object back to the Profile page component so it can show an alert
     } catch (error) {
       console.error(
-        "Failed submitting updated profile payload metrics:",
+        "Failed submitting updated profile payload metrics",
         error,
-      );
+      );triggerAlert('error', 'Sync Failure', 'Failed submitting updated profile payload metrics.');
       return {
         success: false,
         message: "Could not establish database syncing pipeline.",
@@ -257,10 +298,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (result.success && result.log) {
         // Hydrate global log activity tracking cache arrays instantly
         setAllActivityLogs((prevLogs) => [result.log, ...prevLogs]);
+      }else {
+        triggerAlert('error', 'Tracking Error', result.message || 'Could not complete addition routing.');
       }
       return result;
     } catch (error) {
       console.error("Database tracking link pipeline dropped:", error);
+      triggerAlert('error', 'Storage Error', 'Could not safely sync data metric to storage.');
       return {
         success: false,
         message: "Could not safely sync data metric to storage.",
@@ -283,9 +327,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       const result = await response.json();
+      if (!result.success) {
+        triggerAlert('error', 'Update Failed', result.message || 'Could not resolve backend modification.');
+      }
       return result;
     } catch (error) {
       console.error("Database entry modification link failed:", error);
+      triggerAlert('error', 'Write Error', 'Could not safely sync update to database storage.');
       return {
         success: false,
         message: "Could not safely sync update to database storage.",
@@ -307,9 +355,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       const result = await response.json();
+      if (!result.success) {
+        triggerAlert('error', 'Deletion Prevented', result.message || 'Could not clear database entry row.');
+      }
       return result;
     } catch (error) {
       console.error("Failed executing entry deletion link:", error);
+      triggerAlert('error', 'Network Error', 'Server communication error during removal.');
       return {
         success: false,
         message: "Server communication error during removal.",
@@ -339,6 +391,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       return result;
     } catch (error) {
       console.error("Failed fetching live health documents:", error);
+      triggerAlert('error', 'Synchronization Error', 'Database syncing error.');
       return { success: false, message: "Database syncing error." };
     }
   };
@@ -371,9 +424,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     updateHealthEntry,
     deleteHealthEntry,
     getUserHealthLogs,
+    triggerAlert,
   };
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return <AppContext.Provider value={value}>{children}
+  {/* Structural placement injected globally inside the component tree overlay */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        onClose={alertConfig.onClose}
+      />
+      </AppContext.Provider>;
 };
 
 export const useAppContext = () => {

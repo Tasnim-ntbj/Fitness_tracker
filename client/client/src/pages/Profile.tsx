@@ -1,7 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/Appcontext';
 import { User as UserIcon, Upload } from 'lucide-react';
+import AlertModal from '../components/AlertModal'; // 🌟 Import the custom alert modal
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -12,7 +12,14 @@ const Profile = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 🎯 Updated default initial states to gracefully bind with incoming onboarding variables
+  // 🌟 Modal State Management Controls
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: 'success' as 'success' | 'error',
+    title: '',
+    message: ''
+  });
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -28,7 +35,6 @@ const Profile = () => {
     lastPeriodStart: ''
   });
 
-  // 🔄 Syncing local state whenever the global user model is hydrated (e.g., from onboarding or backend)
   useEffect(() => {
     if (user) {
       setFormData({
@@ -73,7 +79,6 @@ const Profile = () => {
     }
   };
 
-  //func to calculate age from dob
   const calculateAge = (dateOfBirth: string): number => {
     if (!dateOfBirth) return 0;
     const today = new Date();
@@ -87,47 +92,12 @@ const Profile = () => {
     return age;
   };
 
-  //local handlesave:
-  // const handleSave = () => {
-  //   setIsSaving(true);
-    
-  //   // Automatically recalculate the age layer if they modified their DOB input stream
-  //   const coreAge = formData.dob ? calculateAge(formData.dob) : (formData.age !== '' ? Number(formData.age) : user?.age);
-  //   const updatedHeight = formData.height !== '' ? Number(formData.height) : user?.height;
-
-  //   // Dispatches a state updates package downstream to your AppProvider contexts layout
-  //   updateUserProfile({
-  //     name: formData.name || user?.name,
-  //     email: formData.email || user?.email,
-  //     dob: formData.dob || user?.dob,
-  //     age: coreAge,
-  //     height: updatedHeight,
-  //     gender: formData.gender || user?.gender,
-  //     bloodGroup: formData.bloodGroup || user?.bloodGroup,
-  //     profileImage: formData.profileImage || user?.profileImage,
-  //     useMenstrualTracker: formData.useMenstrualTracker,
-  //     avgCycleLength: formData.useMenstrualTracker ? Number(formData.avgCycleLength) : 0,
-  //     avgBleedingDays: formData.useMenstrualTracker ? Number(formData.avgBleedingDays) : 0,
-  //     lastPeriodStart: formData.useMenstrualTracker ? formData.lastPeriodStart : ''
-  //   });
-    
-  //   setTimeout(() => {
-  //     setIsSaving(false);
-  //     setIsEditing(false); 
-  //     alert("Changes saved successfully!");
-  //   }, 500);
-  // };
-
-  
-  //🚨 handlesave using backend context
   const handleSave = async () => {
     setIsSaving(true);
     
-    // 2. Run your runtime age calculation calculations dynamically
     const coreAge = formData.dob ? calculateAge(formData.dob) : (formData.age !== '' ? Number(formData.age) : user?.age);
     const updatedHeight = formData.height !== '' ? Number(formData.height) : user?.height;
 
-    // 3. Trigger the appcontext delivery method we broke down 
     const result = await updateUserProfile({
       email: formData.email,
       dob: formData.dob,
@@ -144,12 +114,22 @@ const Profile = () => {
 
     setIsSaving(false);
 
-    // Look at the result returned from Appcontext
+    // 🌟 Replaced standard window.alert blocks with custom modal triggers
     if (result && result.success) {
-      setIsEditing(false); // inputs become gray/disabled again
-      alert(result.message || "Changes saved successfully!");
+      setIsEditing(false); 
+      setModalConfig({
+        isOpen: true,
+        type: 'success',
+        title: 'Profile Updated',
+        message: result.message || "Your metrics records have been synchronized successfully."
+      });
     } else {
-      alert(result?.message || "Failed to save profile structural updates.");
+      setModalConfig({
+        isOpen: true,
+        type: 'error',
+        title: 'Execution Failed',
+        message: result?.message || "Could not save profile telemetry data downstream."
+      });
     }
   };
 
@@ -229,7 +209,6 @@ const Profile = () => {
                 />
               </div>
 
-              {/* 🔄 Added full Date of Birth field mapping to preserve onboarding integrity */}
               <div className="flex flex-col gap-3">
                 <label className="ml-1 text-sm font-bold tracking-wide text-slate-900 dark:text-white">Date of Birth</label>
                 <input 
@@ -279,7 +258,7 @@ const Profile = () => {
                 >
                   <option value="">Select Group</option>
                   <option value="A+">A+</option>
-                  <option value="A-">A-</option>
+                  <option value="A- font-semibold">A-</option>
                   <option value="B+">B+</option>
                   <option value="B-">B-</option>
                   <option value="O+">O+</option>
@@ -290,7 +269,7 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Menstrual Cycle Settings (Condition matches lowercase output safely) */}
+            {/* Menstrual Cycle Settings */}
             {formData.gender.toLowerCase() === 'female' && (
               <div className="pt-10 mt-12 space-y-8 border-t border-slate-200 dark:border-slate-800">
                 <div className="flex flex-col gap-2">
@@ -367,6 +346,15 @@ const Profile = () => {
           </div>
         </div>
       </div>
+
+      {/* 🌟 Alert Modal Dynamic Inclusion Overlay */}
+      <AlertModal 
+        isOpen={modalConfig.isOpen}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+      />
     </div>
   );
 };

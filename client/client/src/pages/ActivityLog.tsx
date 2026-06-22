@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import CustomCalendar from './CustomCalendar';
 import { Pencil, Trash2, Scale, Droplets, Activity, Calendar as CalendarIcon, Plus, ArrowUpDown } from 'lucide-react';
 import { useAppContext } from '../context/Appcontext';
+import AlertModal from '../components/AlertModal';
 
 interface HealthEntry {
   id: number|string;
@@ -11,6 +12,21 @@ interface HealthEntry {
   sugar: string;
   bpSystolic: string;
   bpDiastolic: string;
+}
+
+// Toast Interface for notifications
+interface Toast {
+  message: string;
+  type: 'success' | 'error';
+}
+
+// Configuration state interface for custom alert modal management
+interface AlertModalConfig {
+  isOpen: boolean;
+  type: 'success' | 'error';
+  title: string;
+  message: string;
+  onClose: () => void;
 }
 
 const ActivityLog = () => {
@@ -45,7 +61,37 @@ const ActivityLog = () => {
   // useEffect(() => {
   //   localStorage.setItem('health_logs', JSON.stringify(entries));
   // }, [entries]);
+// Toast State
+  const [toast, setToast] = useState<Toast | null>(null);
 
+  // Custom Alert/Confirm Modal State Configuration
+  const [alertConfig, setAlertConfig] = useState<AlertModalConfig>({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: '',
+    onClose: () => {},
+  });
+
+  // Helper to trigger our custom alert UI replacement
+  const triggerAlertModal = (type: 'success' | 'error', title: string, message: string) => {
+    setAlertConfig({
+      isOpen: true,
+      type,
+      title,
+      message,
+      onClose: () => setAlertConfig((prev) => ({ ...prev, isOpen: false })),
+    });
+  };
+
+  // Toast Timer Hook
+  // Automatically clear notification toast after 3 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
   
 //backend fetch 
 useEffect(() => {
@@ -102,22 +148,45 @@ useEffect(() => {
   // };
 
  //handleDelete using Backend
- const handleDelete = async (id: number | string) => {
-  // Confirm with the user before wiping records permanently
-  if (window.confirm("Are you absolutely sure you want to delete this health record permanently?")) {
+//  const handleDelete = async (id: number | string) => {
+//   // Confirm with the user before wiping records permanently
+//   if (window.confirm("Are you absolutely sure you want to delete this health record permanently?")) {
     
-    // Fire the async request to your backend server
-    const result = await deleteHealthEntry(id);
+//     // Fire the async request to your backend server
+//     const result = await deleteHealthEntry(id);
 
-    if (result && result.success) {
-      // Instantly filter out the deleted log from your local React state array so the UI updates live
-      setEntries(entries.filter(entry => entry.id !== id && entry._id !== id));
-      alert(result.message || "Record successfully cleared.");
-    } else {
-      alert(result?.message || "Failed to drop entry document row.");
-    }
-  }
-}; 
+//     if (result && result.success) {
+//       // Instantly filter out the deleted log from your local React state array so the UI updates live
+//       setEntries(entries.filter(entry => entry.id !== id && entry._id !== id));
+//       alert(result.message || "Record successfully cleared.");
+//     } else {
+//       alert(result?.message || "Failed to drop entry document row.");
+//     }
+//   }
+// }; 
+// Updated Dynamic Custom Delete Handler
+  const handleDelete = (id: number | string) => {
+    setAlertConfig({
+      isOpen: true,
+      type: 'error',
+      title: 'Confirm Deletion',
+      message: 'Are you absolutely sure you want to delete this health record permanently?',
+      onClose: async () => {
+        // Close modal overlay first
+        setAlertConfig((prev) => ({ ...prev, isOpen: false }));
+        
+        // Execute operational pipeline request
+        const result = await deleteHealthEntry(id);
+
+        if (result && result.success) {
+          setEntries(entries.filter(entry => entry.id !== id && entry._id !== id));
+          triggerAlertModal('success', 'Cleared Record', result.message || "Record successfully cleared.");
+        } else {
+          triggerAlertModal('error', 'Operation Failed', result?.message || "Failed to drop entry document row.");
+        }
+      },
+    });
+  };
 
 //handle save using backend
 const handleSave = async (e: React.FormEvent) => {
@@ -152,10 +221,10 @@ const handleSave = async (e: React.FormEvent) => {
       setEntries(entries.map(item => item.id === editingEntry.id ? formattedUpdatedEntry : item));
       setIsModalOpen(false);
       setEditingEntry(null);
-      alert(result.message || "Log updated successfully!");
-    } else {
-      alert(result?.message || "Could not complete database entry update modification.");
-    }
+      triggerAlertModal('success', 'Log Updated', result.message || "Log updated successfully!");
+      } else {
+        triggerAlertModal('error', 'Update Failed', result?.message || "Could not complete database entry update modification.");
+      }
 
   } else {
     //  Creating a completely new record in MongoDB 
@@ -174,10 +243,10 @@ const handleSave = async (e: React.FormEvent) => {
 
       setEntries([formattedNewEntry, ...entries]);
       setIsModalOpen(false);
-      alert(result.message || "Log saved successfully!");
-    } else {
-      alert(result?.message || "Could not complete database entry addition.");
-    }
+      triggerAlertModal('success', 'Log Saved', result.message || "Log saved successfully!");
+      } else {
+        triggerAlertModal('error', 'Save Failed', result?.message || "Could not complete database entry addition.");
+      }
   }
 };
 
@@ -468,6 +537,14 @@ const getGroupedEntriesByMonth = () => {
           </div>
         </div>
       )}
+      {/* GLOBAL APPLICATION ALERT MODAL VIEW LAYER */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        onClose={alertConfig.onClose}
+      />
     </div>
   );
 };
