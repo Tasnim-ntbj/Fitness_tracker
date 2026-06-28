@@ -254,6 +254,77 @@ const getMyProfile = async (req, res) => {
     });
   }
 };
+
+const recordPeriodStart = async (req, res) => {
+  try {
+    // req.user._id is populated dynamically by ensureAuthenticated middleware
+    const userId = req.user._id;
+    const { startDate } = req.body; // Format expected: YYYY-MM-DD
+
+    if (!startDate) {
+      return res.status(400).json({
+        success: false,
+        message: "The current target startDate string parameter is missing.",
+      });
+    }
+
+    // Find the user context inside MongoDB
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User reference profile location missing.",
+      });
+    }
+
+    const previousStartStr = user.lastPeriodStart;
+
+    // Logic Execution: Calculate previous cycle delta metrics automatically if history exists
+    if (previousStartStr) {
+      const previousStart = new Date(previousStartStr);
+      const newStart = new Date(startDate);
+
+      // Math parsing duration in day milestones
+      const diffTime = newStart.getTime() - previousStart.getTime();
+      const dynamicDuration = Math.max(
+        1,
+        Math.floor(diffTime / (1000 * 60 * 60 * 24)),
+      );
+
+      const newHistoryEntry = {
+        startDate: previousStartStr,
+        endDate: startDate,
+        durationInDays: dynamicDuration,
+      };
+
+      // Push document cleanly directly onto Mongoose sub-document array
+      user.cycleHistory.push(newHistoryEntry);
+    }
+
+    // Set current active track line anchor to today
+    user.lastPeriodStart = startDate;
+
+    // Atomically save downstream alterations
+    const updatedUser = await user.save();
+
+    // Clear the password hash representation layout block from returning to client
+    updatedUser.password = undefined;
+
+    return res.status(200).json({
+      success: true,
+      message: previousStartStr
+        ? "Cycle structural trend array saved successfully downstream."
+        : "Initial baseline tracker cycle configured successfully.",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Backend Record Period Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server encountered an error saving menstrual history updates.",
+    });
+  }
+};
 module.exports = {
   signup,
   login,
@@ -261,4 +332,5 @@ module.exports = {
   logout,
   updateProfile,
   getMyProfile,
+  recordPeriodStart,
 };

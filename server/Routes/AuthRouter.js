@@ -5,6 +5,7 @@ const {
   logout,
   updateProfile,
   getMyProfile,
+  recordPeriodStart,
 } = require("../Controllers/AuthController");
 
 const {
@@ -23,5 +24,7 @@ router.get("/me", ensureAuthenticated, getMyProfile);
 
 router.put("/onboarding", ensureAuthenticated, completeOnboarding);
 router.put("/update-profile", ensureAuthenticated, updateProfile);
+
+router.post("/record-period", ensureAuthenticated, recordPeriodStart);
 
 module.exports = router;

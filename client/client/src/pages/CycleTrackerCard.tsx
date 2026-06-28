@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/Appcontext';
 import { User as Play } from 'lucide-react';
+import AlertModal from '../components/AlertModal';
 
 interface CycleTrackerCardProps {
   selectedDate?: Date; 
@@ -18,6 +19,13 @@ const CycleTrackerCard = ({ selectedDate }: CycleTrackerCardProps) => {
 
   const [lastStart, setLastStart] = useState(contextLastStart);
 
+  // Modal State Management Controls matching Profile configuration
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: 'success' as 'success' | 'error',
+    title: '',
+    message: ''
+  });
   // Sync state if context changes
   useEffect(() => {
     if (user?.lastPeriodStart) {
@@ -51,34 +59,91 @@ const CycleTrackerCard = ({ selectedDate }: CycleTrackerCardProps) => {
 
   const { daysRemaining, progressPercent, currentDay } = calculateCycleData(lastStart, avgCycleLength, today);
 
-  const handlePeriodStarted = () => {
-    if (!user) return;
-    const todayStr = new Date().toISOString().split('T')[0];
+  // const handlePeriodStarted = () => {
+  //   if (!user) return;
+  //   const todayStr = new Date().toISOString().split('T')[0];
     
-    const previousStart = new Date(lastStart);
-    const currentStart = new Date(todayStr);
-    const diffTime = currentStart.getTime() - previousStart.getTime();
-    const dynamicDuration = Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+  //   const previousStart = new Date(lastStart);
+  //   const currentStart = new Date(todayStr);
+  //   const diffTime = currentStart.getTime() - previousStart.getTime();
+  //   const dynamicDuration = Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
 
-    const newHistoryEntry = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-      startDate: lastStart,
-      endDate: todayStr,
-      durationInDays: dynamicDuration
-    };
+  //   const newHistoryEntry = {
+  //     id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+  //     startDate: lastStart,
+  //     endDate: todayStr,
+  //     durationInDays: dynamicDuration
+  //   };
 
-    const updatedUser = {
-      ...user,
-      lastPeriodStart: todayStr,
-      cycleHistory: [...(user.cycleHistory || []), newHistoryEntry]
-    };
+  //   const updatedUser = {
+  //     ...user,
+  //     lastPeriodStart: todayStr,
+  //     cycleHistory: [...(user.cycleHistory || []), newHistoryEntry]
+  //   };
 
-    setUser(updatedUser);
-    localStorage.setItem('user_data', JSON.stringify(updatedUser));
-    setLastStart(todayStr);
-    alert(`New cycle recorded! Previous cycle: ${dynamicDuration} days.`);
-  };
+  //   setUser(updatedUser);
+  //   localStorage.setItem('user_data', JSON.stringify(updatedUser));
+  //   setLastStart(todayStr);
+  //   alert(`New cycle recorded! Previous cycle: ${dynamicDuration} days.`);
+  // };
 
+const handlePeriodStarted = async () => {
+  if (!user) return;
+  
+  const todayStr = new Date().toISOString().split('T')[0];
+  const token = localStorage.getItem('token') || localStorage.getItem('jwtToken'); 
+
+  try {
+    const response = await fetch('http://localhost:8080/auth/record-period', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` 
+      },
+      body: JSON.stringify({
+        startDate: todayStr
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Server returned status ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+
+    if (result.success) {
+      // Sync global context states dynamically
+      setUser(result.user);
+      localStorage.setItem('user_data', JSON.stringify(result.user));
+      
+      // 🌟 FIXED: Use modal state instead of native browser alert()
+      setModalConfig({
+        isOpen: true,
+        type: 'success',
+        title: 'Tracker Updated',
+        message: 'New cycle safely synchronized upstream!'
+      });
+    } else {
+      // 🌟 FIXED: Handled failure state modal update
+      setModalConfig({
+        isOpen: true,
+        type: 'error',
+        title: 'Update Failed',
+        message: result.message || "Failed to update tracking node."
+      });
+    }
+  } catch (error: any) {
+    console.error("Sync error:", error);
+    // 🌟 FIXED: Catch block error state modal update
+    setModalConfig({
+      isOpen: true,
+      type: 'error',
+      title: 'Sync Error',
+      message: 'Network communication dropped or unauthorized connection access. Try again later.'
+    });
+  }
+};
   const getPhaseName = (day: number) => {
     if (day >= 1 && day <= avgBleedingDays) return "Menstrual Phase";
     if (day >= avgBleedingDays + 1 && day <= 13) return "Follicular Phase";
@@ -138,6 +203,13 @@ if (!isEligible) return null;
           ))}
         </div>
       </div>
+      <AlertModal 
+        isOpen={modalConfig.isOpen}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+      />
     </div>
   );
 };

@@ -14,7 +14,7 @@ const AlertModal: React.FC<AlertModalProps> = ({ isOpen, type, title, message, o
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 duration-200 bg-slate-950/60 backdrop-blur-sm animate-in fade-in">
-      <div className="w-full max-w-md bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-[2rem] shadow-2xl overflow-hidden transform scale-100 animate-in zoom-in-95 duration-200 p-8 relative">
+      <div className="w-full max-w-md bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-4xl shadow-2xl overflow-hidden transform scale-100 animate-in zoom-in-95 duration-200 p-8 relative">
         
         {/* Close Button Icon */}
         <button 
